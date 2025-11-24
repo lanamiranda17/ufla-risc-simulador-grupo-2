@@ -6,6 +6,7 @@ UFLA-RISC.
 ## Integrantes do Grupo
 - Lana da Silva Miranda
 - Fábio Damas Valim
+- Guilherme Lirio Miranda
 
 
 ## Como Executar

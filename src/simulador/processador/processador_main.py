@@ -5,14 +5,19 @@ from .registradores import Registradores
 from .pc import PC
 from .ir import IR
 from .flags import Flags
+from interpretador.interpretador import InterpretadorDeInstrucoes
+
 
 class Processador:
     def __init__(self):
-        self.memoria = Memoria()
+        self.memoria = Memoria()  # Memória do processador
         self.regs = Registradores()
         self.pc = PC()
         self.ir = IR()
         self.flags = Flags()
+
+        # Inicializa o interpretador com a memória do processador
+        self.interpretador = InterpretadorDeInstrucoes(self.memoria)
 
         # Variáveis internas de controle (Pipeline registers fictícios)
         self.opcode = 0
@@ -24,6 +29,10 @@ class Processador:
         self.alu_res = 0 # Resultado da ALU
         self.wb_data = 0 # Dado para escrever no registrador (se houver)
         self.write_enable = False # Flag para permitir escrita no WB
+
+    def carregar_programa(self, caminho_arquivo):
+        """Carrega o programa na memória usando o interpretador."""
+        self.interpretador.carregar_arquivo(caminho_arquivo)
 
     def executar(self):
         print("--- Iniciando Simulação ---")
@@ -38,7 +47,18 @@ class Processador:
                 print("Erro: PC fora dos limites da memória.")
                 break
 
+            # Busca a instrução na memória do processador
             instrucao = self.memoria.load(pc_atual)
+
+            # Decodifica a instrução usando a função do interpretador
+            instr_decodificada = self.interpretador.decodificar_endereco(pc_atual)
+            
+            # Se não houver instrução (instrução vazia ou final), pare a execução
+            if instr_decodificada is None:
+                print(f"Sem instrução no endereço {pc_atual}. Fim da execução.")
+                break
+
+            # Carrega a instrução no IR
             self.ir.carregar(instrucao)
             
             # Verifica HALT (Todos os bits 1 = 0xFFFFFFFF ou -1 em signed)
@@ -48,18 +68,18 @@ class Processador:
                 break
 
             # Incrementa PC
-            self.pc.read(pc_atual + 1) # Nota: .read() da Lana funciona como SET
+            self.pc.read(pc_atual + 1)
 
             # =================================================
             # 2. ID: Instruction Decode (Decodificação)
             # =================================================
-            inst = self.ir.instrucao
+            inst = instr_decodificada['instrucao']
             
             # Extração de campos (Bitwise Shift e Mask)
-            self.opcode = (inst >> 24) & 0xFF
-            self.ra_idx = (inst >> 16) & 0xFF
-            self.rb_idx = (inst >> 8) & 0xFF
-            self.rc_idx = inst & 0xFF
+            self.opcode = inst['opcode']
+            self.ra_idx = inst['ra']
+            self.rb_idx = inst['rb']
+            self.rc_idx = inst['rc']
 
             # Busca de operandos nos registradores
             self.op1 = self.regs.load(self.ra_idx)
@@ -78,11 +98,7 @@ class Processador:
             # 4. WB: Write Back (Escrita)
             # =================================================
             if self.write_enable:
-                # Nota: O método .read() da Lana GRAVA o valor no registrador
                 self.regs.read(self.rc_idx, self.wb_data)
-                
-            # (Opcional) Debug por ciclo:
-            # print(f"PC:{pc_atual} | OP:{self.opcode} | R[{self.rc_idx}]={self.wb_data}")
 
     def _executar_estagio_ex_mem(self):
         """Lógica separada para executar as instruções baseado no Opcode"""
@@ -241,3 +257,17 @@ class Processador:
             val = self.regs.load(i)
             if val != 0:
                 print(f"R{i}: {val} ({hex(val)})")
+    
+    
+if __name__ == "__main__":
+    # Caminho para o arquivo de instruções
+    caminho_arquivo = "instrucoes.txt"  # Ajuste o caminho conforme necessário
+
+    # Criação do processador
+    processador = Processador()
+
+    # Carrega o programa na memória do processador
+    processador.carregar_programa(caminho_arquivo)
+
+    # Executa a simulação
+    processador.executar()

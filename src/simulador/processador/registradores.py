@@ -1,10 +1,11 @@
-class Registradores:                # Regitradores de uso geral R0–R31
+class Registradores:
     def __init__(self):
-        self.regs = [0] * 32        # Cria 32 registradores começando com 0
+        self.regs = [0] * 32
 
+    # LER registrador
     def load(self, indice):
         return self.regs[indice]
 
-    def read(self, indice, valor):
-        self.regs[indice] = valor & 0xFFFFFFFF # Mesma lógica da memória
- 
+    # ESCREVER registrador
+    def write(self, indice, valor):
+        self.regs[indice] = valor & 0xFFFFFFFF

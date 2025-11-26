@@ -1,9 +1,15 @@
 class Flags:
-    def __init__(self):         # Inicia todas as flags como desligadas
-        self.neg = 0                # Resultado foi negativo
-        self.zero = 0               # Resultado foi zero
-        self.carry = 0              # Vai um bit “a mais” em operações de soma/subtração
-        self.overflow = 0           # Valor estourou o limite dos 32 bits (sinal errado)
+    def __init__(self):
+        self.neg = 0
+        self.zero = 0
+        self.carry = 0
+        self.overflow = 0
 
     def reset(self):
         self.neg = self.zero = self.carry = self.overflow = 0
+
+    def set_flags(self, flags_dict):
+        self.zero = 1 if flags_dict.get('zero') else 0
+        self.neg = 1 if flags_dict.get('negative') else 0
+        self.carry = 1 if flags_dict.get('carry') else 0
+        self.overflow = 1 if flags_dict.get('overflow') else 0

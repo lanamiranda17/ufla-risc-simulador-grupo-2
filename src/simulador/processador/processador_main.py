@@ -1,273 +1,153 @@
-import sys
-
+# ...existing code...
+from .loader import ProgramLoader
 from .memoria import Memoria
 from .registradores import Registradores
 from .pc import PC
 from .ir import IR
 from .flags import Flags
-from interpretador.interpretador import InterpretadorDeInstrucoes
-
 
 class Processador:
-    def __init__(self):
-        self.memoria = Memoria()  # Memória do processador
-        self.regs = Registradores()
+    def __init__(self, caminho_programa_bin: str = None):
+        # Inicializar componentes
+        self.memoria = Memoria()
+        self.registradores = Registradores()
         self.pc = PC()
         self.ir = IR()
         self.flags = Flags()
-
-        # Inicializa o interpretador com a memória do processador
-        self.interpretador = InterpretadorDeInstrucoes(self.memoria)
-
-        # Variáveis internas de controle (Pipeline registers fictícios)
-        self.opcode = 0
-        self.ra_idx = 0
-        self.rb_idx = 0
-        self.rc_idx = 0
-        self.op1 = 0    # Valor do operando A
-        self.op2 = 0    # Valor do operando B
-        self.alu_res = 0 # Resultado da ALU
-        self.wb_data = 0 # Dado para escrever no registrador (se houver)
-        self.write_enable = False # Flag para permitir escrita no WB
-
-    def carregar_programa(self, caminho_arquivo):
-        """Carrega o programa na memória usando o interpretador."""
-        self.interpretador.carregar_arquivo(caminho_arquivo)
-
-    def executar(self):
-        print("--- Iniciando Simulação ---")
-        while True:
-            # =================================================
-            # 1. IF: Instruction Fetch (Busca)
-            # =================================================
-            pc_atual = self.pc.load()
-            
-            # Verifica limites da memória
-            if pc_atual >= 65536:
-                print("Erro: PC fora dos limites da memória.")
-                break
-
-            # Busca a instrução na memória do processador
-            instrucao = self.memoria.load(pc_atual)
-
-            # Decodifica a instrução usando a função do interpretador
-            instr_decodificada = self.interpretador.decodificar_endereco(pc_atual)
-            
-            # Se não houver instrução (instrução vazia ou final), pare a execução
-            if instr_decodificada is None:
-                print(f"Sem instrução no endereço {pc_atual}. Fim da execução.")
-                break
-
-            # Carrega a instrução no IR
-            self.ir.carregar(instrucao)
-            
-            # Verifica HALT (Todos os bits 1 = 0xFFFFFFFF ou -1 em signed)
-            if self.ir.instrucao == 0xFFFFFFFF:
-                print(f"HALT encontrado no endereço {pc_atual}. Fim da execução.")
-                self.imprimir_estado_final()
-                break
-
-            # Incrementa PC
-            self.pc.read(pc_atual + 1)
-
-            # =================================================
-            # 2. ID: Instruction Decode (Decodificação)
-            # =================================================
-            inst = instr_decodificada['instrucao']
-            
-            # Extração de campos (Bitwise Shift e Mask)
-            self.opcode = inst['opcode']
-            self.ra_idx = inst['ra']
-            self.rb_idx = inst['rb']
-            self.rc_idx = inst['rc']
-
-            # Busca de operandos nos registradores
-            self.op1 = self.regs.load(self.ra_idx)
-            self.op2 = self.regs.load(self.rb_idx)
-
-            # Reset das variáveis de execução
-            self.alu_res = 0
-            self.write_enable = False
-            
-            # =================================================
-            # 3. EX/MEM: Execute & Memory
-            # =================================================
-            self._executar_estagio_ex_mem()
-
-            # =================================================
-            # 4. WB: Write Back (Escrita)
-            # =================================================
-            if self.write_enable:
-                self.regs.read(self.rc_idx, self.wb_data)
-
-    def _executar_estagio_ex_mem(self):
-        """Lógica separada para executar as instruções baseado no Opcode"""
         
-        op = self.opcode
+        # Carregar programa se fornecido
+        if caminho_programa_bin:
+            self.carregar_programa(caminho_programa_bin)
         
-        # --- ALU Operations (0x01 a 0x0C) ---
-        if 0x01 <= op <= 0x0C:
-            self.write_enable = True
-            res = 0
-            
-            if op == 0x01:   # ADD
-                res = self.op1 + self.op2
-                self._atualizar_flags_aritmetica(res, is_sub=False)
-            elif op == 0x02: # SUB
-                res = self.op1 - self.op2
-                self._atualizar_flags_aritmetica(res, is_sub=True)
-            elif op == 0x03: # ZERO
-                res = 0
-                self.flags.reset()
-                self.flags.zero = 1
-            elif op == 0x04: # XOR
-                res = self.op1 ^ self.op2
-                self._atualizar_flags_logica(res)
-            elif op == 0x05: # OR
-                res = self.op1 | self.op2
-                self._atualizar_flags_logica(res)
-            elif op == 0x06: # NOT
-                res = ~self.op1
-                self._atualizar_flags_logica(res)
-            elif op == 0x07: # AND
-                res = self.op1 & self.op2
-                self._atualizar_flags_logica(res)
-            elif op == 0x08: # ASL (Shift Aritmético Esq)
-                res = self.op1 << self.op2
-                self._atualizar_flags_logica(res)
-            elif op == 0x09: # ASR (Shift Aritmético Dir)
-                res = self.op1 >> self.op2
-                self._atualizar_flags_logica(res)
-            elif op == 0x0A: # LSL (Lógico Esq - igual ao ASL em Python positivo)
-                res = self.op1 << self.op2
-                self._atualizar_flags_logica(res)
-            elif op == 0x0B: # LSR (Lógico Dir)
-                res = (self.op1 & 0xFFFFFFFF) >> self.op2
-                self._atualizar_flags_logica(res)
-            elif op == 0x0C: # COPY
-                res = self.op1
-                self.flags.reset() # Copy geralmente não afeta flags ou afeta como lógica? PDF diz: Reset overflow/carry
-            
-            # Garante 32 bits
-            self.alu_res = res & 0xFFFFFFFF
-            self.wb_data = self.alu_res
+        self.parado = False
 
-        # --- Constantes e Memória (0x0E a 0x11) ---
-        elif op == 0x0E: # LCL (Carrega Constante Alta 16 bits)
-            # Formato especial: Constante está em Ra e Rb (bits 23-8)
-            const16 = (self.ra_idx << 8) | self.rb_idx
-            val_atual = self.regs.load(self.rc_idx)
-            # (Const16 << 16) | (Parte Baixa atual)
-            res = (const16 << 16) | (val_atual & 0xFFFF)
-            self.wb_data = res & 0xFFFFFFFF
-            self.write_enable = True
+    # helpers para lidar com nomes diferentes de métodos nas classes PC/IR
+    def _pc_get(self):
+        if hasattr(self.pc, "load"):
+            return self.pc.load()
+        if hasattr(self.pc, "obter"):
+            return self.pc.obter()
+        if hasattr(self.pc, "get"):
+            return self.pc.get()
+        # fallback: tentar atributo direto
+        return getattr(self.pc, "valor", 0)
 
-        elif op == 0x0F: # LCH (Carrega Constante Baixa 16 bits) - Assumindo Opcode
-            const16 = (self.ra_idx << 8) | self.rb_idx
-            val_atual = self.regs.load(self.rc_idx)
-            # (Parte Alta atual) | Const16
-            res = (val_atual & 0xFFFF0000) | const16
-            self.wb_data = res & 0xFFFFFFFF
-            self.write_enable = True
+    def _pc_set(self, valor):
+        if hasattr(self.pc, "read"):
+            return self.pc.read(valor)
+        if hasattr(self.pc, "definir"):
+            return self.pc.definir(valor)
+        if hasattr(self.pc, "set"):
+            return self.pc.set(valor)
+        if hasattr(self.pc, "write"):
+            return self.pc.write(valor)
+        # fallback: atribuir direto
+        setattr(self.pc, "valor", valor)
+        return None
 
-        elif op == 0x10: # LOAD Word
-            endereco = self.op1 & 0xFFFF # Endereço está em RA
-            val = self.memoria.load(endereco)
-            self.wb_data = val
-            self.write_enable = True
+    def _ir_set(self, valor):
+        if hasattr(self.ir, "definir"):
+            return self.ir.definir(valor)
+        if hasattr(self.ir, "load"):
+            return self.ir.load(valor)
+        if hasattr(self.ir, "write"):
+            return self.ir.write(valor)
+        if hasattr(self.ir, "set"):
+            return self.ir.set(valor)
+        # fallback: armazenar em atributo
+        setattr(self.ir, "valor", valor)
+        return None
+
+    def _ir_get(self):
+        if hasattr(self.ir, "obter"):
+            return self.ir.obter()
+        if hasattr(self.ir, "load"):
+            return self.ir.load()
+        if hasattr(self.ir, "read"):
+            return self.ir.read()
+        if hasattr(self.ir, "get"):
+            return self.ir.get()
+        return getattr(self.ir, "valor", 0)
+
+    def carregar_programa(self, caminho_programa_bin: str):
+        """Carrega um programa compilado (.bin) na memória."""
+        loader = ProgramLoader(caminho_programa_bin)
+        endereco_inicio = loader.carregar_na_memoria(self.memoria)
         
-        elif op == 0x11: # STORE Word
-            endereco = self.regs.load(self.rc_idx) & 0xFFFF # Destino (Endereço) está em RC
-            valor = self.op1 # Valor está em RA
-            self.memoria.store(endereco, valor)
-            self.write_enable = False
-
-        # --- Controle de Fluxo (0x12 a 0x16) ---
-        # Nota: O PDF define Jumps com opcodes específicos, ajuste se necessário
-        elif op == 0x12: # JAL (Jump And Link)
-            # Salva PC atual no R31
-            pc_atual = self.pc.load()
-            self.regs.read(31, pc_atual) # .read é set
-            
-            # Endereço está nos 24 bits (Ra, Rb, Rc) -> Formato JUMP
-            # Mas o PDF diz "jal end". Onde está end?
-            # Assumindo formato Tipo J: Bits 23-0
-            endereco_salto = (self.ir.instrucao & 0x00FFFFFF)
-            self.pc.read(endereco_salto)
-
-        elif op == 0x13: # JR (Jump Register)
-            # Endereço está em RC
-            novo_pc = self.regs.load(self.rc_idx)
-            self.pc.read(novo_pc)
-
-        elif op == 0x14: # BEQ (Branch if Equal)
-            if self.op1 == self.op2:
-                # Endereço de salto está no campo RC (apenas 8 bits segundo PDF?)
-                # Se for offset, somamos. Se for absoluto, trocamos.
-                # O PDF diz "PC <- end". Assumindo absoluto curto (0-255)
-                self.pc.read(self.rc_idx)
-
-        elif op == 0x15: # BNE (Branch if Not Equal)
-            if self.op1 != self.op2:
-                self.pc.read(self.rc_idx)
-
-        elif op == 0x16: # JUMP (Incondicional)
-             # Bits 23-0
-            endereco_salto = (self.ir.instrucao & 0x00FFFFFF)
-            self.pc.read(endereco_salto)
-
-    def _atualizar_flags_aritmetica(self, res, is_sub):
-        # Simula comportamento de 32 bits signed
-        val_32 = res & 0xFFFFFFFF
+        # Define o PC para o endereço inicial usando helper
+        self._pc_set(endereco_inicio)
         
-        self.flags.zero = 1 if val_32 == 0 else 0
-        self.flags.neg = 1 if (val_32 >> 31) else 0
-        
-        # Carry e Overflow (Simplificado para Python)
-        # Em hardware real, isso verifica o bit de transporte do bit 31
-        if not is_sub:
-            self.flags.carry = 1 if res > 0xFFFFFFFF else 0
-        else:
-            self.flags.carry = 0 # Subtração é complexa de definir carry sem acesso aos bits crus
-            
-        # Overflow (Sinal errado)
-        # Ex: Positivo + Positivo = Negativo
-        sinal_op1 = (self.op1 >> 31) & 1
-        sinal_op2 = (self.op2 >> 31) & 1
-        sinal_res = (val_32 >> 31) & 1
-        
-        if not is_sub:
-            if (sinal_op1 == sinal_op2) and (sinal_res != sinal_op1):
-                self.flags.overflow = 1
-            else:
-                self.flags.overflow = 0
-
-    def _atualizar_flags_logica(self, res):
-        val_32 = res & 0xFFFFFFFF
-        self.flags.zero = 1 if val_32 == 0 else 0
-        self.flags.neg = 1 if (val_32 >> 31) else 0
-        self.flags.carry = 0
-        self.flags.overflow = 0
-
-    def imprimir_estado_final(self):
-        print("\n--- Estado Final ---")
-        print(f"PC: {self.pc.load()}")
-        print("Registradores (não nulos):")
-        for i in range(32):
-            val = self.regs.load(i)
-            if val != 0:
-                print(f"R{i}: {val} ({hex(val)})")
+        print(f"✓ Programa carregado na memória")
+        print(f"✓ Endereço inicial (PC): {endereco_inicio:08b}")
+        print(f"✓ Total de instruções: {len(loader.instrucoes)}")
     
+    def buscar_instrucao(self):
+        """Busca a instrução na memória apontada pelo PC."""
+        endereco = self._pc_get()              # usa helper para ler PC
+        instrucao = self.memoria.load(endereco)
+        # define IR usando helper
+        self._ir_set(instrucao)
+        return instrucao
     
-if __name__ == "__main__":
-    # Caminho para o arquivo de instruções
-    caminho_arquivo = "instrucoes.txt"  # Ajuste o caminho conforme necessário
-
-    # Criação do processador
-    processador = Processador()
-
-    # Carrega o programa na memória do processador
-    processador.carregar_programa(caminho_arquivo)
-
-    # Executa a simulação
-    processador.executar()
+    def decodificar(self):
+        """Decodifica a instrução no IR."""
+        instrucao = self._ir_get()
+        opcode = (instrucao >> 24) & 0xFF
+        
+        return {
+            'opcode': opcode,
+            'instrucao_bin': f"{instrucao:032b}"
+        }
+    
+    def executar_passo(self):
+        """Executa um ciclo completo: Fetch -> Decode."""
+        if self.parado:
+            return False
+        
+        # Fetch
+        self.buscar_instrucao()
+        
+        # Decode
+        decodificado = self.decodificar()
+        
+        # Incrementar PC para próxima instrução usando helper
+        novo_pc = (self._pc_get() + 1) & 0xFFFFFFFF
+        self._pc_set(novo_pc)
+        
+        return decodificado
+    
+    def executar_programa(self):
+        """Executa o programa completo."""
+        print("\n=== Iniciando execução ===\n")
+        
+        ciclo = 0
+        while not self.parado and ciclo < 1000:  # Limite de segurança
+            try:
+                resultado = self.executar_passo()
+                if resultado:
+                    print(f"Ciclo {ciclo}: Opcode={resultado['opcode']:08b}, Instrução={resultado['instrucao_bin']}")
+                
+                # Verificar se é HALT (11111111)
+                if resultado and resultado['opcode'] == 255:
+                    print("\n✓ HALT encontrado. Programa finalizado.")
+                    self.parado = True
+                    break
+                
+                ciclo += 1
+            except Exception as e:
+                print(f"✗ Erro na execução: {e}")
+                break
+        
+        if ciclo >= 1000:
+            print("⚠ Limite de ciclos atingido!")
+    
+    def estado(self):
+        """Exibe o estado atual do processador."""
+        print("\n=== Estado do Processador ===")
+        pc_val = self._pc_get()
+        ir_val = self._ir_get()
+        print(f"PC: {pc_val:08b}")
+        print(f"IR: {ir_val:032b}")
+        print(f"Registradores: {self.registradores}")
+        print(f"Flags: {self.flags}")
+# ...existing code...

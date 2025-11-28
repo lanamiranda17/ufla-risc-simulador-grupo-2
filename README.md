@@ -13,7 +13,7 @@ O **UFLA-RISC Simulador** implementa um processador hipotético chamado UFLA-RIS
 
 ## Objetivo
 
-O projeto foi desenvolvido como parte da disciplina de Arquitetura de Computadores II da Universidade Federal de Lavras (UFLA). O objetivo principal é:
+O projeto foi desenvolvido como parte da disciplina de Arquitetura de Computadores II da Universidade Federal de Lavras (UFLA). 
 
 
 ## Como Usar

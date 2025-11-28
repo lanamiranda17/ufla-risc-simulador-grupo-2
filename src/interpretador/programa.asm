@@ -1,7 +1,7 @@
-; filepath: c:\Users\arthu\OneDrive\Desktop\ProjetoARQ\ufla-risc-simulador-grupo-2\src\interpretador\programa.asm
-; Programa simples de teste
+; Teste ZEROS
+; Objetivo: Carregar um valor e depois apaga-lo
+; Resultado esperado: r1 termina com 0
 
-zeros r1        ; r1 = 0
-add r2, r1, r1  ; r2 = r1 + r1 = 0
-lcl_msb r3, 0xFF  ; Carrega 0xFF nos 16 bits MSB de r3
-halt            ; Finaliza
+lcl_lsb r1, 255     ; Coloca 255 no r1 (enche de 1s os 8 bits baixos)
+zeros r1            ; Zera o r1 
+halt                ; Fim

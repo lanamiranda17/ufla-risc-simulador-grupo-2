@@ -39,9 +39,6 @@ def main():
     # Step 3: Executar Programa
     print("3️⃣  Executando programa...\n")
     processador.executar_programa()
-    
-    # Step 4: Exibir Estado Final
-    processador.estado()
 
 if __name__ == "__main__":
     main()

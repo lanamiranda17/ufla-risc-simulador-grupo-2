@@ -15,7 +15,6 @@ O **UFLA-RISC Simulador** implementa um processador hipotético chamado UFLA-RIS
 
 O projeto foi desenvolvido como parte da disciplina de Arquitetura de Computadores II da Universidade Federal de Lavras (UFLA). 
 
-
 ## Como Usar
 
 ### Pré-requisitos
@@ -29,10 +28,25 @@ git clone https://github.com/lanamiranda17/ufla-risc-simulador-grupo-2.git
 
 # 2. Entre na pasta do projeto
 cd ufla-risc-simulador-grupo-2/
+```
 
-# 3. Execute o simulador com um binário
+- **Escreva seu código:** Abra o arquivo localizado em `src/interpretador/programa.asm`. Apague o conteúdo existente e cole ou escreva o seu código Assembly neste arquivo. Na pasta `src/testes/testes_assembly` possui vários arquivos '.asm' que podem ser utilizados como conteúdo para teste, apenas copie e cole dentro de `programa.asm`.
+
+  - Nota: O simulador sempre lerá o código deste arquivo específico.
+
+- **Execute o simulador:** Na raiz do projeto, execute o arquivo principal:
+```bash
 python src/main.py
 ```
+
+- **Verifique a Saída:** O terminal exibirá: 
+  - Confirmação da compilação (`.asm` -> `.bin`).
+  - Logs ciclo a ciclo da execução (Fetch/Decode).
+  - Estado final dos registradores e memória.
+
+### Exemplo de saída (conteúdo do arquivo 'teste_sub.asm'):
+<img width="1302" height="831" alt="image" src="https://github.com/user-attachments/assets/b0a4c1a7-5765-4ca0-9390-d88b5795c507" />
+
 ---
 
 ## Integrantes

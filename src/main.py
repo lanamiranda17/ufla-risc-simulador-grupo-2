@@ -10,8 +10,8 @@ from simulador.processador.processador_main import Processador
 
 def main():
     # Caminhos
-    caminho_asm = "src/interpretador/programa.asm"
-    caminho_bin = "src/interpretador/programa.bin"
+    caminho_asm = "interpretador/programa.asm"
+    caminho_bin = "interpretador/programa.bin"
     
     print("=== RISC Simulator ===\n")
     
